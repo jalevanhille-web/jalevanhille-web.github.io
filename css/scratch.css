@@ -458,13 +458,19 @@ img { max-width: 100%; height: auto; display: block; }
   border: 1px solid var(--c-gold-faint);
   min-height: 500px;
   max-width: 100%;
-  overflow-x: auto; /* viz can scroll within its box if too wide, but page won't */
+  overflow: hidden;
 }
 
-.tableau-frame .tableauPlaceholder,
+/* Scale the viz to fit the container width.
+   Adjust the scale factor if it's too small or still too big. */
 .tableau-frame > div {
-  max-width: 100%;
-  margin: 0 auto;
+  transform-origin: top left;
+  transform: scale(0.65);
+  width: 154% !important;       /* compensates for the scale (1 / 0.65 ≈ 1.54) */
+}
+
+.tableau-frame {
+  height: auto;
 }
 .tableauPlaceholder { width: 100%; }
 .tableau-credit {
