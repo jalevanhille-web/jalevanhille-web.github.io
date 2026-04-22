@@ -457,6 +457,14 @@ img { max-width: 100%; height: auto; display: block; }
   background: var(--c-cream);
   border: 1px solid var(--c-gold-faint);
   min-height: 500px;
+  max-width: 100%;
+  overflow-x: auto; /* viz can scroll within its box if too wide, but page won't */
+}
+
+.tableau-frame .tableauPlaceholder,
+.tableau-frame > div {
+  max-width: 100%;
+  margin: 0 auto;
 }
 .tableauPlaceholder { width: 100%; }
 .tableau-credit {
