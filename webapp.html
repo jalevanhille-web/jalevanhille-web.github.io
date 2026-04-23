@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lunar Base — Leo Vanhille</title>
+  <meta name="description" content="A lunar colony survival simulation. Build, research, and survive on the Moon for 100 days.">
+
+  <!-- Google Fonts: Geist + Geist Mono + Fraunces -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700&display=swap">
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Site design system -->
+  <link rel="stylesheet" href="css/bootstrap-custom.css">
+
+  <style>
+    /* =============================================================
+       Lunar Base — webapp-specific styles
+       Layered on top of bootstrap-custom.css
+       ============================================================= */
+
+    body { background: var(--color-bg-alt); }
+
+    .game-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6) var(--space-16);
+    }
+
+    /* ---- Header ---- */
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .game-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      margin: var(--space-2) 0 0;
+    }
+
+    .game-controls { display: flex; gap: var(--space-2); }
+
+    .game-control-btn {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-4);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-text);
+      cursor: pointer;
+      transition: border-color 0.1s, background 0.1s, color 0.1s;
+    }
+    .game-control-btn:hover { border-color: var(--color-text); }
+    .game-control-btn.active { background: var(--color-text); color: var(--color-bg); border-color: var(--color-text); }
+
+    /* ---- HUD ---- */
+    .hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      background: var(--color-bg);
+      border: var(--border-thin);
+      border-radius: var(--radius);
+      margin-bottom: var(--space-6);
+    }
+
+    .hud-stat { display: flex; flex-direction: column; gap: 2px; }
+
+    .hud-stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-text-subtle);
+    }
+
+    .hud-stat-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-lg);
+      font-weight: 500;
+      color: var(--color-text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hud-stat-delta {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--color-text-subtle);
+    }
+
+    .hud-stat-warning { color: #b91c1c !important; }
+
+    .time-indicator { display: flex; align-items: center; gap: 6px; }
+    .time-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text); }
+    .time-dot.night { background: #94a3b8; }
+
+    /* ---- Game layout ---- */
+    .game-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-6);
+    }
+
+    @media (max-width: 900px) {
+      .game-layout { grid-template-columns: 1fr; }
+    }
+
+    .grid-panel {
+      background: var(--color-bg);
+      border: var(--border-thin);
+      border-radius: var(--radius);
+      padding: var(--space-4);
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lunar-grid {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 2px;
+      background: var(--color-border);
+      padding: 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    .grid-cell {
+      background: #f5f5f4;
+      cursor: default;
+      transition: background 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--color-text);
+      user-select: none;
+    }
+
+    .grid-cell.placeable { cursor: pointer; }
+    .grid-cell.placeable:hover { background: #e7e5e4; outline: 1px dashed var(--color-text); outline-offset: -2px; }
+
+    .grid-cell.demolish-mode.occupied { cursor: pointer; }
+    .grid-cell.demolish-mode.occupied:hover { background: #fee2e2; }
+
+    .grid-cell.occupied { background: var(--color-bg); }
+    .grid-cell.occupied.disabled { opacity: 0.35; background: #fef3c7; }
+
+    /* ---- Side panel ---- */
+    .side-panel { display: flex; flex-direction: column; gap: var(--space-4); }
+
+    .panel-card {
+      background: var(--color-bg);
+      border: var(--border-thin);
+      border-radius: var(--radius);
+      padding: var(--space-4);
+    }
+
+    .panel-tabs {
+      display: flex;
+      border-bottom: var(--border-thin);
+      margin-bottom: var(--space-4);
+      gap: var(--space-4);
+    }
+
+    .panel-tab {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: var(--space-2) 0;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: none;
+      cursor: pointer;
+      color: var(--color-text-subtle);
+      transition: color 0.1s, border-color 0.1s;
+    }
+    .panel-tab.active { color: var(--color-text); border-bottom-color: var(--color-text); }
+
+    .build-item, .tech-item {
+      padding: var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-2);
+      cursor: pointer;
+      transition: border-color 0.1s, background 0.1s, color 0.1s;
+      background: var(--color-bg);
+    }
+
+    .build-item:hover, .tech-item:hover { border-color: var(--color-text); }
+    .build-item.selected, .tech-item.unlocked {
+      border-color: var(--color-text);
+      background: var(--color-text);
+      color: var(--color-bg);
+    }
+    .build-item.selected .build-item-desc, .tech-item.unlocked .build-item-desc {
+      color: rgba(255, 255, 255, 0.75);
+    }
+    .build-item.selected .build-item-cost, .tech-item.unlocked .build-item-cost {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .build-item.locked, .build-item.unaffordable, .tech-item.unaffordable {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .build-item.locked:hover, .build-item.unaffordable:hover, .tech-item.unaffordable:hover {
+      border-color: var(--color-border);
+    }
+
+    .build-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+      gap: var(--space-2);
+    }
+
+    .build-item-name { font-weight: 500; font-size: var(--text-sm); }
+
+    .build-item-cost {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      color: var(--color-text-subtle);
+      white-space: nowrap;
+    }
+
+    .build-item-desc {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      line-height: 1.4;
+    }
+
+    .demolish-toggle {
+      width: 100%;
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg);
+      color: var(--color-text-muted);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: var(--space-3);
+      transition: all 0.1s;
+    }
+    .demolish-toggle:hover { border-color: var(--color-text); }
+    .demolish-toggle.active { background: #b91c1c; color: white; border-color: #b91c1c; }
+
+    /* ---- Event log ---- */
+    .event-log {
+      background: var(--color-bg);
+      border: var(--border-thin);
+      border-radius: var(--radius);
+      padding: var(--space-4) var(--space-6);
+      margin-top: var(--space-6);
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .event-log-title {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-text-subtle);
+      margin-bottom: var(--space-3);
+    }
+
+    .event-log-entry {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      padding: 4px 0;
+      border-bottom: 1px solid #f5f5f5;
+      display: flex;
+      gap: var(--space-3);
+    }
+    .event-log-entry:last-child { border-bottom: none; }
+    .event-log-entry .day { color: var(--color-text-subtle); min-width: 56px; }
+    .event-log-entry .msg { flex: 1; }
+    .event-log-entry.positive .msg { color: #15803d; }
+    .event-log-entry.negative .msg { color: #b91c1c; }
+    .event-log-entry.system .msg { color: var(--color-text); }
+
+    /* ---- Overlay (game over / victory) ---- */
+    .game-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 10, 0.88);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1050;
+      padding: var(--space-6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .game-overlay.show { display: flex; }
+
+    .overlay-card {
+      background: var(--color-bg);
+      border-radius: var(--radius-lg);
+      padding: var(--space-12);
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .overlay-eyebrow {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--color-text-subtle);
+      margin-bottom: var(--space-3);
+    }
+
+    .overlay-title {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 500;
+      letter-spacing: -0.025em;
+      margin-bottom: var(--space-4);
+    }
+
+    .overlay-body { color: var(--color-text-muted); margin-bottom: var(--space-8); }
+
+    /* ---- Tutorial card ---- */
+    .tutorial-card {
+      background: var(--color-text);
+      color: var(--color-bg);
+      border-radius: var(--radius);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+      position: relative;
+    }
+    .tutorial-card.hidden { display: none; }
+
+    .tutorial-eyebrow {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      margin-bottom: var(--space-2);
+    }
+
+    .tutorial-title {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--space-4);
+    }
+
+    .tutorial-body {
+      font-size: var(--text-sm);
+      line-height: 1.55;
+      color: rgba(255, 255, 255, 0.78);
+      margin-bottom: var(--space-2);
+    }
+    .tutorial-body strong { color: white; font-weight: 500; }
+
+    .tutorial-dismiss {
+      position: absolute;
+      top: var(--space-4);
+      right: var(--space-4);
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: rgba(255, 255, 255, 0.7);
+      padding: 4px 12px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .tutorial-dismiss:hover {
+      border-color: white;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="navbar navbar-expand-md navbar-custom sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">Leo Vanhille</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+              data-bs-target="#navMenu" aria-controls="navMenu"
+              aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse justify-content-end" id="navMenu">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="resume.html">Résumé</a></li>
+          <li class="nav-item"><a class="nav-link active" href="webapp.html">Lunar Base</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="game-shell">
+
+    <header class="game-header">
+      <div>
+        <p class="text-mono mb-0">Mission Control</p>
+        <h1 class="game-title">Lunar Base</h1>
+      </div>
+      <div class="game-controls">
+        <button class="game-control-btn" id="pauseBtn">PAUSE</button>
+        <button class="game-control-btn" id="restartBtn">RESTART</button>
+      </div>
+    </header>
+
+    <!-- HUD -->
+    <div class="hud" id="hud"></div>
+
+    <!-- Tutorial -->
+    <div class="tutorial-card" id="tutorialCard">
+      <button class="tutorial-dismiss" id="tutorialDismiss">Got it</button>
+      <p class="tutorial-eyebrow">Briefing</p>
+      <h2 class="tutorial-title">How to Play</h2>
+      <p class="tutorial-body">
+        <strong>Goal:</strong> Survive 100 days and grow your crew to 20+. Each game day = 2 real seconds.
+      </p>
+      <p class="tutorial-body">
+        <strong>Resources:</strong> Crew use <strong>oxygen</strong> and <strong>water</strong> every day. <strong>Power</strong> drives every module — solar arrays only generate during sunlight, and lunar nights last 3 days. <strong>Materials</strong> build modules. <strong>Research</strong> unlocks tech.
+      </p>
+      <p class="tutorial-body">
+        <strong>What to do first:</strong> Build more habitats to grow your crew (you start at the housing cap), then a Mining Rig for material income or a Research Lab to unlock tech. Keep oxygen and water above 50 — if either hits zero for 3 days, your crew dies.
+      </p>
+      <p class="tutorial-body">
+        <strong>Curveballs:</strong> Meteors, dust storms, malfunctions. Build redundantly. Research Nuclear Battery early if you want to survive long nights.
+      </p>
+    </div>
+
+    <!-- Layout -->
+    <div class="game-layout">
+      <div class="grid-panel">
+        <div class="lunar-grid" id="grid"></div>
+      </div>
+
+      <div class="side-panel">
+        <div class="panel-card">
+          <div class="panel-tabs">
+            <button class="panel-tab active" data-tab="build">Build</button>
+            <button class="panel-tab" data-tab="tech">Research</button>
+          </div>
+          <div id="panelContent"></div>
+          <button class="demolish-toggle" id="demolishToggle">Demolish: OFF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="event-log">
+      <div class="event-log-title">Mission Log</div>
+      <div id="eventLog"></div>
+    </div>
+
+  </main>
+
+  <!-- Game over / victory overlay -->
+  <div class="game-overlay" id="overlay">
+    <div class="overlay-card">
+      <p class="overlay-eyebrow" id="overlayEyebrow">Mission Status</p>
+      <h2 class="overlay-title" id="overlayTitle"></h2>
+      <p class="overlay-body" id="overlayBody"></p>
+      <button class="btn-minimal" id="overlayBtn">Begin New Mission</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer-custom">
+    <div class="container">
+      <div class="d-flex justify-content-between flex-wrap gap-3 align-items-center">
+        <div class="text-mono">© 2026 Leo Vanhille</div>
+        <div>
+          <a href="mailto:ja.le.vanhille@gmail.com">Email</a>
+          <span class="footer-divider">·</span>
+          <a href="index.html">Home</a>
+          <span class="footer-divider">·</span>
+          <a href="resume.html">Résumé</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- ============================================================
+       LUNAR BASE — game logic
+       ============================================================ -->
+  <script>
+    'use strict';
+
+    // ---- Constants ----
+    const GRID_SIZE = 8;
+    const TICK_MS = 2000;          // 2 sec real = 1 game day
+    const DAY_LENGTH = 3;          // 3 days sun, 3 days night
+    const NIGHT_LENGTH = 3;
+    const VICTORY_DAY = 100;
+    const VICTORY_CREW = 20;
+    const STARVATION_LIMIT = 3;
+
+    // ---- Module definitions ----
+    const MODULES = {
+      habitat: {
+        name: 'Habitat',
+        icon: 'HAB',
+        cost: 20,
+        description: 'Houses 4 crew. Consumes 5 power.',
+        power: -5,
+        capacity: { crew: 4 },
+      },
+      solar: {
+        name: 'Solar Array',
+        icon: 'SOL',
+        cost: 15,
+        description: 'Produces 15 power during day. Idle at night.',
+        power: 15,
+        dayOnly: true,
+      },
+      o2gen: {
+        name: 'O₂ Generator',
+        icon: 'O₂',
+        cost: 25,
+        description: 'Produces 10 oxygen/day. Consumes 8 power.',
+        power: -8,
+        produces: { oxygen: 10 },
+      },
+      water: {
+        name: 'Water Extractor',
+        icon: 'H₂O',
+        cost: 25,
+        description: 'Produces 10 water/day. Consumes 6 power.',
+        power: -6,
+        produces: { water: 10 },
+      },
+      storage: {
+        name: 'Storage Depot',
+        icon: 'STR',
+        cost: 30,
+        description: '+200 capacity for oxygen and water.',
+        power: 0,
+        capacity: { oxygen: 200, water: 200 },
+      },
+      lab: {
+        name: 'Research Lab',
+        icon: 'LAB',
+        cost: 40,
+        description: 'Produces 1 research/day. Consumes 10 power.',
+        power: -10,
+        produces: { research: 1 },
+      },
+      mining: {
+        name: 'Mining Rig',
+        icon: 'MIN',
+        cost: 60,
+        description: 'Produces 8 materials/day. Consumes 12 power.',
+        power: -12,
+        produces: { materials: 8 },
+      },
+      battery: {
+        name: 'Battery Bank',
+        icon: 'BAT',
+        cost: 25,
+        description: 'Stores 50 power for night use.',
+        power: 0,
+        capacity: { powerStorage: 50 },
+        requires: 'nuclear-battery',
+      },
+    };
+
+    // ---- Tech tree ----
+    const TECHS = {
+      'improved-solar': {
+        name: 'Improved Solar Cells',
+        cost: 8,
+        description: 'Solar Arrays produce 50% more power.',
+      },
+      'cryo-storage': {
+        name: 'Cryogenic Storage',
+        cost: 12,
+        description: 'Oxygen and water capacity doubled.',
+      },
+      'deep-core-drilling': {
+        name: 'Deep Core Drilling',
+        cost: 12,
+        description: 'Mining Rigs produce 75% more materials.',
+      },
+      'nuclear-battery': {
+        name: 'Nuclear Battery',
+        cost: 25,
+        description: 'Unlocks Battery Bank (stores power for night).',
+      },
+      'ai-automation': {
+        name: 'AI Automation',
+        cost: 35,
+        description: 'All modules consume 30% less power.',
+      },
+    };
+
+    // ---- Random events ----
+    const EVENTS = [
+      { name: 'meteor', weight: 25, fn: () => {
+        if (state.modules.length === 0) return;
+        // Weight toward higher-cost modules so meteors hurt more late game
+        const weighted = state.modules.flatMap(m => Array(MODULES[m.type].cost).fill(m));
+        const hits = state.modules.length >= 6 ? 2 : 1;
+        const destroyed = new Set();
+        for (let i = 0; i < hits; i++) {
+          const target = weighted[Math.floor(Math.random() * weighted.length)];
+          if (!target || destroyed.has(target)) continue;
+          destroyed.add(target);
+          removeModule(target);
+        }
+        if (destroyed.size === 0) return;
+        const names = [...destroyed].map(m => MODULES[m.type].name).join(', ');
+        logEvent(`Meteor strike! Destroyed: ${names}.`, 'negative');
+      }},
+      { name: 'dust', weight: 25, fn: () => {
+        let count = 0;
+        for (const m of state.modules) {
+          if (m.type === 'solar' && !m.disabled) {
+            m.disabled = true;
+            m.disabledUntil = state.day + 5;
+            count++;
+          }
+        }
+        if (count > 0) logEvent(`Dust storm. ${count} solar array${count > 1 ? 's' : ''} offline for 5 days.`, 'negative');
+        else logEvent('Dust storm passes. No solar arrays affected.', 'system');
+      }},
+      { name: 'ice', weight: 20, fn: () => {
+        const cap = effectiveCap('water');
+        const before = state.resources.water;
+        state.resources.water = Math.min(cap, state.resources.water + 200);
+        const gained = Math.round(state.resources.water - before);
+        logEvent(`Ice deposit found. +${gained} water.`, 'positive');
+      }},
+      { name: 'supply', weight: 20, fn: () => {
+        state.resources.materials += 30;
+        logEvent('Supply ship arrived. +30 materials.', 'positive');
+      }},
+      { name: 'malfunction', weight: 10, fn: () => {
+        const candidates = state.modules.filter(m => !m.disabled && m.type !== 'habitat' && m.type !== 'storage');
+        if (candidates.length === 0) {
+          logEvent('Diagnostic check passed. All systems nominal.', 'system');
+          return;
+        }
+        const target = candidates[Math.floor(Math.random() * candidates.length)];
+        target.disabled = true;
+        target.disabledUntil = state.day + 3;
+        logEvent(`Malfunction. ${MODULES[target.type].name} offline for 3 days.`, 'negative');
+      }},
+      { name: 'salvage', weight: 20, fn: () => {
+        const amt = 15 + Math.floor(Math.random() * 16); // 15–30
+        state.resources.materials += amt;
+        logEvent(`Salvageable debris located. +${amt} materials.`, 'positive');
+      }},
+    ];
+
+    // ---- Game state ----
+    let state;
+    let tickHandle = null;
+
+    function initState() {
+      state = {
+        day: 1,
+        cycleDay: 1,
+        resources: {
+          power: 0,
+          oxygen: 100,
+          water: 100,
+          materials: 100,
+          research: 0,
+          crew: 4,
+        },
+        capacities: {
+          oxygen: 200,
+          water: 200,
+          crew: 0,
+          powerStorage: 0,
+        },
+        powerStored: 0,
+        grid: Array(GRID_SIZE * GRID_SIZE).fill(null),
+        modules: [],
+        techs: Object.fromEntries(Object.keys(TECHS).map(k => [k, false])),
+        events: [],
+        selectedBuilding: null,
+        starvationDays: 0,
+        status: 'playing',
+        paused: false,
+        demolishMode: false,
+        currentTab: 'build',
+      };
+      placeStarter();
+    }
+
+    function placeStarter() {
+      // Center-ish layout (col 3-4, row 3-4)
+      placeModule('habitat', cellIdx(3, 3));
+      placeModule('solar', cellIdx(4, 3));
+      placeModule('solar', cellIdx(3, 4));
+      placeModule('o2gen', cellIdx(4, 4));
+      placeModule('water', cellIdx(2, 4));
+    }
+
+    function cellIdx(row, col) { return row * GRID_SIZE + col; }
+
+    function placeModule(type, idx) {
+      const m = { type, cellIdx: idx, disabled: false, disabledUntil: null };
+      state.modules.push(m);
+      state.grid[idx] = m;
+      const def = MODULES[type];
+      if (def.capacity) {
+        for (const [k, v] of Object.entries(def.capacity)) {
+          state.capacities[k] = (state.capacities[k] || 0) + v;
+        }
+      }
+    }
+
+    function removeModule(m) {
+      state.grid[m.cellIdx] = null;
+      state.modules = state.modules.filter(x => x !== m);
+      const def = MODULES[m.type];
+      if (def.capacity) {
+        for (const [k, v] of Object.entries(def.capacity)) {
+          state.capacities[k] -= v;
+        }
+      }
+    }
+
+    function effectiveCap(resource) {
+      const cryo = state.techs['cryo-storage'] ? 2 : 1;
+      if (resource === 'oxygen') return state.capacities.oxygen * cryo;
+      if (resource === 'water') return state.capacities.water * cryo;
+      return Infinity;
+    }
+
+    // ---- Logging ----
+    function logEvent(msg, type = 'system') {
+      state.events.unshift({ day: state.day, msg, type });
+      if (state.events.length > 60) state.events.pop();
+    }
+
+    // ---- Game tick ----
+    function tick() {
+      if (state.status !== 'playing' || state.paused) return;
+
+      state.day += 1;
+      state.cycleDay += 1;
+      if (state.cycleDay > DAY_LENGTH + NIGHT_LENGTH) state.cycleDay = 1;
+
+      // Re-enable expired disabled modules
+      for (const m of state.modules) {
+        if (m.disabled && m.disabledUntil != null && state.day > m.disabledUntil) {
+          m.disabled = false;
+          m.disabledUntil = null;
+        }
+      }
+
+      const isDay = state.cycleDay <= DAY_LENGTH;
+      const aiBonus = state.techs['ai-automation'] ? 0.7 : 1;
+      const solarBonus = state.techs['improved-solar'] ? 1.5 : 1;
+
+      // ---- Power calculation ----
+      let powerNet = 0;
+      for (const m of state.modules) {
+        if (m.disabled) continue;
+        const def = MODULES[m.type];
+        if (def.dayOnly && !isDay) continue;            // solar offline at night
+        if (def.power > 0) powerNet += def.power * (def.dayOnly ? solarBonus : 1);
+        else if (def.power < 0) powerNet += def.power * aiBonus;
+      }
+
+      // Battery: charge on surplus, drain on deficit
+      let powerSufficient;
+      if (powerNet >= 0) {
+        state.powerStored = Math.min(state.capacities.powerStorage, state.powerStored + powerNet);
+        powerSufficient = true;
+      } else {
+        // try to draw from battery
+        if (state.powerStored + powerNet >= 0) {
+          state.powerStored += powerNet;
+          powerSufficient = true;
+        } else {
+          state.powerStored = 0;
+          powerSufficient = false;
+        }
+      }
+      state.resources.power = powerNet;
+
+      // ---- Production (only if power sufficient) ----
+      const production = { oxygen: 0, water: 0, materials: 0, research: 0 };
+      const drillBonus = state.techs['deep-core-drilling'] ? 1.75 : 1;
+      if (powerSufficient) {
+        for (const m of state.modules) {
+          if (m.disabled) continue;
+          const def = MODULES[m.type];
+          if (def.produces) {
+            for (const [k, v] of Object.entries(def.produces)) {
+              const bonus = (m.type === 'mining' && k === 'materials') ? drillBonus : 1;
+              production[k] = (production[k] || 0) + v * bonus;
+            }
+          }
+        }
+      }
+
+      // Passive resupply from Earth — keeps the loop alive even when stalled.
+      production.materials += 1;
+
+      // ---- Crew consumption ----
+      const o2Use = state.resources.crew * 1.5;
+      const waterUse = state.resources.crew * 1.5;
+
+      const o2Cap = effectiveCap('oxygen');
+      const waterCap = effectiveCap('water');
+
+      state.resources.oxygen = Math.min(o2Cap, state.resources.oxygen + production.oxygen - o2Use);
+      state.resources.water = Math.min(waterCap, state.resources.water + production.water - waterUse);
+      state.resources.materials += production.materials;
+      state.resources.research += production.research;
+
+      // ---- Starvation check ----
+      let starving = false;
+      if (state.resources.oxygen <= 0) { state.resources.oxygen = 0; starving = true; }
+      if (state.resources.water <= 0) { state.resources.water = 0; starving = true; }
+
+      if (starving) {
+        state.starvationDays += 1;
+        if (state.starvationDays === 1) {
+          logEvent('Critical resource shortage. Crew has 3 days.', 'negative');
+        }
+        if (state.starvationDays >= STARVATION_LIMIT) {
+          gameOver(false);
+          return;
+        }
+      } else {
+        if (state.starvationDays > 0) {
+          logEvent('Crisis averted. Crew stable.', 'positive');
+        }
+        state.starvationDays = 0;
+      }
+
+      // ---- Crew growth ----
+      if (state.resources.crew < state.capacities.crew &&
+          state.resources.oxygen > 50 &&
+          state.resources.water > 50 &&
+          Math.random() < 0.12) {
+        state.resources.crew += 1;
+        logEvent(`New crew arrived. Population: ${state.resources.crew}.`, 'positive');
+      }
+
+      // ---- Random events ----
+      if (state.day > 5 && Math.random() < 0.14) {
+        triggerRandomEvent();
+      }
+
+      // ---- Win condition ----
+      if (state.day >= VICTORY_DAY && state.resources.crew >= VICTORY_CREW) {
+        gameOver(true);
+        return;
+      }
+
+      render();
+    }
+
+    function triggerRandomEvent() {
+      const totalWeight = EVENTS.reduce((s, e) => s + e.weight, 0);
+      let r = Math.random() * totalWeight;
+      for (const e of EVENTS) {
+        r -= e.weight;
+        if (r <= 0) { e.fn(); return; }
+      }
+    }
+
+    // ---- User actions ----
+    function selectBuilding(type) {
+      if (state.demolishMode) return;
+      const def = MODULES[type];
+      if (def.requires && !state.techs[def.requires]) return;
+      if (state.resources.materials < def.cost) return;
+      state.selectedBuilding = state.selectedBuilding === type ? null : type;
+      render();
+    }
+
+    function clickCell(idx) {
+      if (state.status !== 'playing') return;
+
+      if (state.demolishMode) {
+        const m = state.grid[idx];
+        if (!m) return;
+        const refund = Math.floor(MODULES[m.type].cost / 2);
+        const name = MODULES[m.type].name;
+        removeModule(m);
+        state.resources.materials += refund;
+        logEvent(`${name} demolished. Refunded ${refund} materials.`, 'system');
+        render();
+        return;
+      }
+
+      if (!state.selectedBuilding) return;
+      if (state.grid[idx]) return;
+      const def = MODULES[state.selectedBuilding];
+      if (state.resources.materials < def.cost) return;
+      state.resources.materials -= def.cost;
+      placeModule(state.selectedBuilding, idx);
+      logEvent(`${def.name} constructed.`, 'system');
+      if (state.resources.materials < def.cost) state.selectedBuilding = null;
+      render();
+    }
+
+    function unlockTech(key) {
+      if (state.techs[key]) return;
+      const t = TECHS[key];
+      if (state.resources.research < t.cost) return;
+      state.resources.research -= t.cost;
+      state.techs[key] = true;
+      logEvent(`Research complete: ${t.name}.`, 'positive');
+      render();
+    }
+
+    function toggleDemolish() {
+      state.demolishMode = !state.demolishMode;
+      state.selectedBuilding = null;
+      render();
+    }
+
+    function togglePause() {
+      state.paused = !state.paused;
+      render();
+    }
+
+    function restartGame() {
+      initState();
+      logEvent('Mission begins. Survive 100 days. Reach 20 crew.', 'system');
+      document.getElementById('overlay').classList.remove('show');
+      document.getElementById('tutorialCard').classList.remove('hidden');
+      render();
+    }
+
+    function gameOver(won) {
+      state.status = won ? 'won' : 'lost';
+      const overlay = document.getElementById('overlay');
+      const eyebrow = document.getElementById('overlayEyebrow');
+      const title = document.getElementById('overlayTitle');
+      const body = document.getElementById('overlayBody');
+      if (won) {
+        eyebrow.textContent = 'Mission Successful';
+        title.textContent = 'Colony Established';
+        body.textContent = `Day ${state.day}. ${state.resources.crew} crew alive. The base is self-sustaining.`;
+      } else {
+        eyebrow.textContent = 'Mission Failed';
+        title.textContent = 'Colony Lost';
+        body.textContent = `The base ran out of life support on Day ${state.day}.`;
+      }
+      overlay.classList.add('show');
+    }
+
+    // ---- Rendering ----
+    function render() {
+      renderHud();
+      renderGrid();
+      renderPanel();
+      renderEventLog();
+      renderControls();
+    }
+
+    function renderHud() {
+      const hud = document.getElementById('hud');
+      const isDay = state.cycleDay <= DAY_LENGTH;
+      const r = state.resources;
+      const c = state.capacities;
+      const o2Cap = effectiveCap('oxygen');
+      const waterCap = effectiveCap('water');
+
+      hud.innerHTML = `
+        <div class="hud-stat">
+          <div class="hud-stat-label">Day</div>
+          <div class="hud-stat-value">${state.day} / ${VICTORY_DAY}</div>
+          <div class="time-indicator hud-stat-delta">
+            <span class="time-dot ${isDay ? '' : 'night'}"></span>
+            ${isDay ? 'Sunlit' : 'Lunar Night'}
+          </div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Crew</div>
+          <div class="hud-stat-value">${r.crew} / ${c.crew}</div>
+          <div class="hud-stat-delta">${c.crew > r.crew ? 'Housing avail.' : 'At capacity'}</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Power</div>
+          <div class="hud-stat-value ${r.power < 0 && state.powerStored <= 0 ? 'hud-stat-warning' : ''}">${r.power >= 0 ? '+' : ''}${r.power.toFixed(0)} kW</div>
+          <div class="hud-stat-delta">Stored: ${state.powerStored.toFixed(0)} / ${c.powerStorage}</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Oxygen</div>
+          <div class="hud-stat-value ${r.oxygen < 30 ? 'hud-stat-warning' : ''}">${r.oxygen.toFixed(0)}</div>
+          <div class="hud-stat-delta">Cap: ${o2Cap}</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Water</div>
+          <div class="hud-stat-value ${r.water < 30 ? 'hud-stat-warning' : ''}">${r.water.toFixed(0)}</div>
+          <div class="hud-stat-delta">Cap: ${waterCap}</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Materials</div>
+          <div class="hud-stat-value">${r.materials.toFixed(0)}</div>
+          <div class="hud-stat-delta">Build resource</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-label">Research</div>
+          <div class="hud-stat-value">${r.research.toFixed(0)}</div>
+          <div class="hud-stat-delta">Tech currency</div>
+        </div>
+      `;
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        const m = state.grid[i];
+        if (m) {
+          cell.classList.add('occupied');
+          if (m.disabled) cell.classList.add('disabled');
+          cell.innerHTML = `<span>${MODULES[m.type].icon}</span>`;
+          cell.title = MODULES[m.type].name + (m.disabled ? ' (offline)' : '');
+        } else if (state.selectedBuilding && !state.demolishMode) {
+          cell.classList.add('placeable');
+        }
+        if (state.demolishMode) cell.classList.add('demolish-mode');
+        cell.addEventListener('click', () => clickCell(i));
+        grid.appendChild(cell);
+      }
+    }
+
+    function renderPanel() {
+      const content = document.getElementById('panelContent');
+      document.querySelectorAll('.panel-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === state.currentTab);
+      });
+
+      if (state.currentTab === 'build') {
+        let html = '';
+        for (const [key, m] of Object.entries(MODULES)) {
+          const locked = m.requires && !state.techs[m.requires];
+          const unaffordable = !locked && state.resources.materials < m.cost;
+          const selected = state.selectedBuilding === key;
+          let cls = 'build-item';
+          if (selected) cls += ' selected';
+          else if (locked) cls += ' locked';
+          else if (unaffordable) cls += ' unaffordable';
+          const desc = locked ? `Requires research: ${TECHS[m.requires].name}` : m.description;
+          const onclick = (locked || unaffordable) ? '' : `selectBuilding('${key}')`;
+          html += `
+            <div class="${cls}" ${onclick ? `onclick="${onclick}"` : ''}>
+              <div class="build-item-header">
+                <span class="build-item-name">${m.name}</span>
+                <span class="build-item-cost">${m.cost} MAT</span>
+              </div>
+              <div class="build-item-desc">${desc}</div>
+            </div>
+          `;
+        }
+        content.innerHTML = html;
+      } else {
+        let html = '';
+        for (const [key, t] of Object.entries(TECHS)) {
+          const unlocked = state.techs[key];
+          const unaffordable = !unlocked && state.resources.research < t.cost;
+          let cls = 'tech-item';
+          if (unlocked) cls += ' unlocked';
+          else if (unaffordable) cls += ' unaffordable';
+          const onclick = (unlocked || unaffordable) ? '' : `unlockTech('${key}')`;
+          const costLabel = unlocked ? 'UNLOCKED' : `${t.cost} RP`;
+          html += `
+            <div class="${cls}" ${onclick ? `onclick="${onclick}"` : ''}>
+              <div class="build-item-header">
+                <span class="build-item-name">${t.name}</span>
+                <span class="build-item-cost">${costLabel}</span>
+              </div>
+              <div class="build-item-desc">${t.description}</div>
+            </div>
+          `;
+        }
+        content.innerHTML = html;
+      }
+    }
+
+    function renderEventLog() {
+      const log = document.getElementById('eventLog');
+      log.innerHTML = state.events.map(e => `
+        <div class="event-log-entry ${e.type}">
+          <span class="day">DAY ${e.day}</span>
+          <span class="msg">${e.msg}</span>
+        </div>
+      `).join('') || '<div class="event-log-entry"><span class="msg" style="color: var(--color-text-subtle)">No events yet.</span></div>';
+    }
+
+    function renderControls() {
+      const pauseBtn = document.getElementById('pauseBtn');
+      pauseBtn.textContent = state.paused ? 'RESUME' : 'PAUSE';
+      pauseBtn.classList.toggle('active', state.paused);
+
+      const dt = document.getElementById('demolishToggle');
+      dt.textContent = `Demolish: ${state.demolishMode ? 'ON' : 'OFF'}`;
+      dt.classList.toggle('active', state.demolishMode);
+    }
+
+    // ---- Wire up static listeners ----
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        state.currentTab = tab.dataset.tab;
+        render();
+      });
+    });
+    document.getElementById('pauseBtn').addEventListener('click', togglePause);
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
+    document.getElementById('demolishToggle').addEventListener('click', toggleDemolish);
+    document.getElementById('overlayBtn').addEventListener('click', restartGame);
+    document.getElementById('tutorialDismiss').addEventListener('click', () => {
+      document.getElementById('tutorialCard').classList.add('hidden');
+    });
+
+    // ---- Boot ----
+    initState();
+    logEvent('Mission begins. Survive 100 days. Reach 20 crew.', 'system');
+    render();
+    tickHandle = setInterval(tick, TICK_MS);
+  </script>
+</body>
+</html>
