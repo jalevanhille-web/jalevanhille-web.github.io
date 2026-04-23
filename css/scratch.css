@@ -456,33 +456,25 @@ img { max-width: 100%; height: auto; display: block; }
   padding: 1rem;
   background: var(--c-cream);
   border: 1px solid var(--c-gold-faint);
-  min-height: 500px;
   max-width: 100%;
   overflow: hidden;
+  position: relative;
 }
 
-/* Scale the viz to fit the container width.
-   Adjust the scale factor if it's too small or still too big. */
-.tableau-frame > div {
-  transform-origin: top left;
-  transform: scale(0.65);
-  width: 154% !important;       /* compensates for the scale (1 / 0.65 ≈ 1.54) */
+/* Force-scale everything inside the Tableau wrapper.
+   This overrides Tableau's inline width/height styles. */
+.tableau-frame > div,
+.tableau-frame .tableauPlaceholder {
+  transform: scale(0.55) !important;
+  transform-origin: top left !important;
+  width: 182% !important;
+  height: auto !important;
 }
 
+/* Shrink the frame's height to match the scaled viz so there's no empty space below */
 .tableau-frame {
-  height: auto;
+  height: 600px;
 }
-.tableauPlaceholder { width: 100%; }
-.tableau-credit {
-  font-family: var(--f-label);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.25em;
-  color: var(--c-cream-faint);
-  margin-top: 1.25rem;
-  text-align: right;
-}
-
 /* ----- 11. FOOTER ----- */
 .site-footer {
   padding: 5rem var(--gutter) 3rem;
